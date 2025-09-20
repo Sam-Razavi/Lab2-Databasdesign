@@ -101,3 +101,62 @@ ORDER BY ProductID;
 --8	                          Northwoods Cranberry Sauce	         Condiments	             40.00
 --9	                          Mishi Kobe Niku	                     Meat/Poultry	         97.00
 --10	                      Ikura	                                 Seafood	             31.00
+
+-- Uppgift 25: Skapa en transaktion som inkluderar minst två uppdateringar och en rullback
+-- 1) Lets first show the before values
+SELECT ProductID, ProductName, UnitPrice
+FROM Products
+WHERE ProductID IN (1, 2)   
+ORDER BY ProductID;
+
+-- Output:
+--ProductID	ProductName	UnitPrice
+--1	            Chai	18.00
+--2	            Chang	19.00
+
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    -- Our first update
+    UPDATE Products
+    SET UnitPrice = UnitPrice + 1.00
+    WHERE ProductID = 1;   -- Chai
+
+    -- the second update
+    UPDATE Products
+    SET UnitPrice = UnitPrice + 2.00
+    WHERE ProductID = 2;   -- Chang
+
+    -- We try to force an error to trigger the CATCH block by dividing by zero
+    SELECT 1 / 0;  -- triggers CATCH
+
+    -- it won't reach this line cause of the error above
+    COMMIT TRANSACTION;
+    PRINT 'Transaction committed.';
+END TRY
+BEGIN CATCH
+    IF XACT_STATE() <> 0
+        ROLLBACK TRANSACTION;
+
+    PRINT 'Error occurred. Transaction rolled back.';
+
+    SELECT 
+        ERROR_NUMBER()  AS ErrorNumber,
+        ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+GO
+
+--output:
+--ErrorNumber	       ErrorMessage
+--8134	               Divide by zero error encountered.
+
+-- Lets verifu AFTER: prices should be unchanged due to rollback
+SELECT ProductID, ProductName, UnitPrice
+FROM Products
+WHERE ProductID IN (1, 2)
+ORDER BY ProductID;
+
+-- Output:
+--ProductID	ProductName	UnitPrice
+--1	            Chai	18.00
+--2	            Chang	19.00
